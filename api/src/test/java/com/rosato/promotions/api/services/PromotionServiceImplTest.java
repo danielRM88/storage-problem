@@ -24,9 +24,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @SpringBootTest
-public class FileServiceTest {
+public class PromotionServiceImplTest {
   @Autowired
-  private FileService fileService;
+  private PromotionService promotionService;
   private FileUtil fileUtil;
 
   @BeforeEach
@@ -44,7 +44,7 @@ public class FileServiceTest {
   @BeforeEach
   private void mockFileUtil() {
     fileUtil = mock(FileUtil.class);
-    ReflectionTestUtils.setField(fileService, "fileUtil", fileUtil);
+    ReflectionTestUtils.setField(promotionService, "fileUtil", fileUtil);
   }
 
   @Test
@@ -61,7 +61,7 @@ public class FileServiceTest {
     req.setChunkNumber(1);
     req.setContent(expected);
 
-    boolean response = fileService.save(req);
+    boolean response = promotionService.saveChunk(req);
     StringBuilder fileUploadedContents = new StringBuilder("");
     try (Stream<String> stream = Files.lines(Paths.get(req.getUploadFilename()))) {
       stream.forEach(fileUploadedContents::append);
@@ -90,11 +90,11 @@ public class FileServiceTest {
       req.setChunkNumber(i);
       req.setContent(expected);
 
-      boolean response = fileService.save(req);
+      boolean response = promotionService.saveChunk(req);
       assertEquals(true, response);
     }
 
-    fileService.build();
+    promotionService.buildPromotions();
     Path outputPath = Paths.get(fileUtil.getUploadPath() + "promotions-final.csv");
     StringBuilder result = new StringBuilder();
     try (Stream<String> stream = Files.lines(outputPath)) {

@@ -10,20 +10,41 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import com.rosato.promotions.api.models.FileChunk;
 import com.rosato.promotions.api.models.FileUtil;
+import com.rosato.promotions.api.models.Promotion;
+import com.rosato.promotions.api.repositories.PromotionRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-public class FileService {
+public class PromotionServiceImpl implements PromotionService {
+  @Autowired
+  private PromotionRepository promotionRepository;
   @Autowired
   private FileUtil fileUtil;
 
-  public boolean save(FileChunk chunk) {
+  @Override
+  public Promotion findById(Long id) {
+    Promotion promotion = null;
+    Optional<Promotion> result = promotionRepository.findById(id);
+    if (result.isPresent()) {
+      promotion = result.get();
+    }
+    return promotion;
+  }
+
+  @Override
+  public void create(Promotion promotion) {
+    promotionRepository.save(promotion);
+  }
+
+  @Override
+  public boolean saveChunk(FileChunk chunk) {
     boolean saved = false;
 
     try (BufferedWriter w = Files.newBufferedWriter(Paths.get(chunk.getUploadFilename()))) {
@@ -38,7 +59,9 @@ public class FileService {
     return saved;
   }
 
-  public Path build() {
+  @Override
+  public boolean buildPromotions() {
+    boolean result = true;
     String regex = "promotions-upload.part*";
     String uploadString = fileUtil.getUploadPath();
     Path uploadPath = Paths.get(uploadString);
@@ -64,8 +87,9 @@ public class FileService {
       }
     } catch (IOException e) {
       e.printStackTrace();
+      result = false;
     }
 
-    return finalFilePath;
+    return result;
   }
 }
