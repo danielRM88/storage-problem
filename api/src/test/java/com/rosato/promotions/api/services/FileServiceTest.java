@@ -1,4 +1,4 @@
-package com.rosato.promotions.api.controllers;
+package com.rosato.promotions.api.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -10,13 +10,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
-import java.util.UUID;
 import java.util.stream.Stream;
 
-import com.rosato.promotions.api.controllers.PromotionsController.StartUploadResponse;
 import com.rosato.promotions.api.models.FileChunk;
 import com.rosato.promotions.api.models.FileUtil;
-import com.rosato.promotions.api.models.UUIDGenerator;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,10 +24,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @SpringBootTest
-public class PromotionsControllerTest {
+public class FileServiceTest {
   @Autowired
-  private PromotionsController promotionsController;
-  private UUIDGenerator uuidGenerator;
+  private FileService fileService;
   private FileUtil fileUtil;
 
   @BeforeEach
@@ -46,31 +42,13 @@ public class PromotionsControllerTest {
   }
 
   @BeforeEach
-  private void mockUUID() {
-    uuidGenerator = mock(UUIDGenerator.class);
-    ReflectionTestUtils.setField(promotionsController, "uuidGenerator", uuidGenerator);
-  }
-
-  @BeforeEach
   private void mockFileUtil() {
     fileUtil = mock(FileUtil.class);
+    ReflectionTestUtils.setField(fileService, "fileUtil", fileUtil);
   }
 
   @Test
-  public void shouldReturnRandomUUID() {
-    UUID uuid = UUID.randomUUID();
-    when(uuidGenerator.getUUID()).thenAnswer(new Answer<UUID>() {
-      public UUID answer(InvocationOnMock invocation) throws Throwable {
-        return uuid;
-      }
-    });
-    StartUploadResponse response = promotionsController.startUpload();
-    assertEquals(uuid, response.getUploadId());
-  }
-
-  @Test
-  public void shouldCreateChunk() {
-
+  public void shouldSaveFileChunk() {
     when(fileUtil.getUploadPath()).thenAnswer(new Answer<String>() {
       public String answer(InvocationOnMock invocation) throws Throwable {
         return "./tmp/tests/";
@@ -83,7 +61,7 @@ public class PromotionsControllerTest {
     req.setChunkNumber(1);
     req.setContent(expected);
 
-    String response = promotionsController.upload(req);
+    boolean response = fileService.save(req);
     StringBuilder fileUploadedContents = new StringBuilder("");
     try (Stream<String> stream = Files.lines(Paths.get(req.getUploadFilename()))) {
       stream.forEach(fileUploadedContents::append);
@@ -91,7 +69,40 @@ public class PromotionsControllerTest {
       e.printStackTrace();
     }
 
-    assertEquals("File uploaded successfully", response);
+    assertEquals(true, response);
     assertEquals(expected, fileUploadedContents.toString());
+  }
+
+  @Test
+  public void shouldBuildFinalFileFromChunks() {
+    when(fileUtil.getUploadPath()).thenAnswer(new Answer<String>() {
+      public String answer(InvocationOnMock invocation) throws Throwable {
+        return "./tmp/tests/";
+      }
+    });
+
+    StringBuilder builder = new StringBuilder();
+    for (int i = 1; i < 6; i++) {
+      String expected = "Test for upload chunk part: " + i;
+      builder.append(expected);
+      FileChunk req = new FileChunk();
+      ReflectionTestUtils.setField(req, "fileUtil", fileUtil);
+      req.setChunkNumber(i);
+      req.setContent(expected);
+
+      boolean response = fileService.save(req);
+      assertEquals(true, response);
+    }
+
+    fileService.build();
+    Path outputPath = Paths.get(fileUtil.getUploadPath() + "promotions-final.csv");
+    StringBuilder result = new StringBuilder();
+    try (Stream<String> stream = Files.lines(outputPath)) {
+      stream.forEach(result::append);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    assertEquals(builder.toString(), result.toString());
   }
 }
