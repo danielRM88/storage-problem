@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PromotionsController {
 
   @ResponseStatus(code = HttpStatus.NOT_FOUND, reason = "Promotion not found")
-  public class PromotionNotFoundException extends RuntimeException {
+  public static class PromotionNotFoundException extends RuntimeException {
     private static final long serialVersionUID = 1L;
   }
 
@@ -35,7 +35,7 @@ public class PromotionsController {
   }
 
   @ResponseStatus(code = HttpStatus.INTERNAL_SERVER_ERROR, reason = "Something went wrong creating file from uploaded chunks")
-  public class MergeChunksException extends RuntimeException {
+  public static class MergeChunksException extends RuntimeException {
     private static final long serialVersionUID = 1L;
   }
 

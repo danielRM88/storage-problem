@@ -1,6 +1,7 @@
 package com.rosato.promotions.api.controllers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -12,8 +13,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.UUID;
 
+import com.rosato.promotions.api.controllers.PromotionsController.MergeChunksException;
+import com.rosato.promotions.api.controllers.PromotionsController.PromotionNotFoundException;
 import com.rosato.promotions.api.models.FileChunk;
 import com.rosato.promotions.api.models.FileUtil;
 import com.rosato.promotions.api.models.Promotion;
@@ -59,16 +63,24 @@ public class PromotionsControllerTest {
 
   @Test
   public void shouldCreateChunk() {
-    String expected = "Test for upload chunk";
+    String expected = "File chunk uploaded successfully";
     FileChunk req = new FileChunk();
     ReflectionTestUtils.setField(req, "fileUtil", fileUtil);
     req.setChunkNumber(1);
     req.setContent(expected);
-
     when(promotionService.saveChunk(req)).thenReturn(true);
+    Map<String, String> response = promotionsController.upload(req);
+    assertEquals(expected, response.get("message"));
+    verify(promotionService).saveChunk(req);
+  }
 
-    String response = promotionsController.upload(req);
-    assertEquals("File uploaded successfully", response);
+  @Test
+  public void shouldReturnChunkCouldNotBeUploadedMsg() {
+    String expected = "File chunk could not be uploaded";
+    FileChunk req = new FileChunk();
+    when(promotionService.saveChunk(req)).thenReturn(false);
+    Map<String, String> response = promotionsController.upload(req);
+    assertEquals(expected, response.get("message"));
     verify(promotionService).saveChunk(req);
   }
 
@@ -91,8 +103,26 @@ public class PromotionsControllerTest {
   }
 
   @Test
-  public void shouldBuildFileFromChunksAndPopulateDB() {
+  public void shouldThrowMPromotionNotFoundExceptionsIfPromotionsNotFound() {
+    Long id = 1L;
+    when(promotionService.findById(id)).thenReturn(null);
+    assertThrows(PromotionNotFoundException.class, () -> {
+      promotionsController.getPromotion(id);
+    });
+  }
+
+  @Test
+  public void shouldBuildFileFromChunks() {
+    when(promotionService.buildPromotions()).thenReturn(true);
     promotionsController.finishUpload();
     verify(promotionService).buildPromotions();
+  }
+
+  @Test
+  public void shouldThrowMergeChunksExceptionsIfBuildPromotionsFailed() {
+    when(promotionService.buildPromotions()).thenReturn(false);
+    assertThrows(MergeChunksException.class, () -> {
+      promotionsController.finishUpload();
+    });
   }
 }
