@@ -10,6 +10,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
+import java.util.Random;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import com.rosato.promotions.api.models.FileChunk;
@@ -82,8 +84,9 @@ public class PromotionServiceImplTest {
     });
 
     StringBuilder builder = new StringBuilder();
+    Random rand = new Random();
     for (int i = 1; i < 6; i++) {
-      String expected = "Test for upload chunk part: " + i;
+      String expected = UUID.randomUUID() + "," + rand.nextDouble() + ",2018-08-04 05:32:31 +0200 CEST";
       builder.append(expected);
       FileChunk req = new FileChunk();
       ReflectionTestUtils.setField(req, "fileUtil", fileUtil);
@@ -95,14 +98,6 @@ public class PromotionServiceImplTest {
     }
 
     promotionService.buildPromotions();
-    Path outputPath = Paths.get(fileUtil.getUploadPath() + "promotions-final.csv");
-    StringBuilder result = new StringBuilder();
-    try (Stream<String> stream = Files.lines(outputPath)) {
-      stream.forEach(result::append);
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-
-    assertEquals(builder.toString(), result.toString());
+    assertEquals(5, promotionService.findAll().size());
   }
 }

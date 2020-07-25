@@ -1,6 +1,8 @@
 package com.rosato.promotions.api.models;
 
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 import javax.persistence.Entity;
@@ -15,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import org.springframework.format.annotation.DateTimeFormat;
 
 @Entity
-@Table(name = "users")
+@Table(name = "promotions")
 public class Promotion {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,8 +30,8 @@ public class Promotion {
   private Double price;
 
   @NotNull
-  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-  @JsonFormat(pattern = "dd/MM/yyyy hh:mm:ss")
+  @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss x z")
+  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
   private LocalDateTime expirationDate;
 
   public void setId(Long id) {
@@ -58,5 +60,12 @@ public class Promotion {
 
   public void setExpirationDate(LocalDateTime expirationDate) {
     this.expirationDate = expirationDate;
+  }
+
+  public void setExpirationDate(String expirationDate) {
+    System.out.println(expirationDate);
+    LocalDateTime dateTime = ZonedDateTime.parse(expirationDate, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss x z"))
+        .toLocalDateTime();
+    this.expirationDate = dateTime;
   }
 }
