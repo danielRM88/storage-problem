@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import com.rosato.promotions.api.controllers.PromotionsController.NoFileChunksFound;
 import com.rosato.promotions.api.models.FileChunk;
 import com.rosato.promotions.api.models.FileUtil;
 import com.rosato.promotions.api.models.Promotion;
@@ -25,6 +26,7 @@ import com.rosato.promotions.api.repositories.PromotionRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PromotionServiceImpl implements PromotionService {
@@ -81,19 +83,22 @@ public class PromotionServiceImpl implements PromotionService {
     String uploadString = fileUtil.getUploadPath();
     Path uploadPath = Paths.get(uploadString);
     Path finalFilePath = Paths.get(uploadString + "promotions-final.csv");
-    System.out.println(finalFilePath.toString());
 
     List<FileChunk> chunks = new ArrayList<>();
     try (BufferedWriter w = Files.newBufferedWriter(finalFilePath);
         DirectoryStream<Path> dir = Files.newDirectoryStream(uploadPath, regex)) {
+
       dir.forEach(path -> {
         chunks.add(new FileChunk(path.toString()));
       });
+
+      if (chunks.isEmpty()) {
+        throw new NoFileChunksFound();
+      }
+
       Collections.sort(chunks);
 
       for (FileChunk chunk : chunks) {
-        System.out.println(chunk.getFilename());
-        // StringBuilder fileUploadedContents = new StringBuilder();
         Path file = Paths.get(chunk.getFilename());
         try (Stream<String> fileStream = Files.lines(file)) {
           fileStream.forEach(line -> {
@@ -112,10 +117,18 @@ public class PromotionServiceImpl implements PromotionService {
       result = false;
     }
 
-    populateTable(finalFilePath);
-    finalFilePath.toFile().delete();
+    if (result) {
+      truncateTable();
+      populateTable(finalFilePath);
+      finalFilePath.toFile().delete();
+    }
 
     return result;
+  }
+
+  @Transactional
+  private void truncateTable() {
+    promotionRepository.truncateTable();
   }
 
   private void populateTable(Path file) {

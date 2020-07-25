@@ -15,6 +15,8 @@ import javax.validation.constraints.NotNull;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.format.annotation.NumberFormat;
+import org.springframework.format.annotation.NumberFormat.Style;
 
 @Entity
 @Table(name = "promotions")
@@ -27,6 +29,7 @@ public class Promotion {
   private UUID uuid;
 
   @NotNull
+  @NumberFormat(style = Style.CURRENCY)
   private Double price;
 
   @NotNull
@@ -46,6 +49,7 @@ public class Promotion {
     this.uuid = uuid;
   }
 
+  @NumberFormat(style = Style.CURRENCY)
   public Double getPrice() {
     return price;
   }

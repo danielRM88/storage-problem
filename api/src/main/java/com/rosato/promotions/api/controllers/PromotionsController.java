@@ -1,5 +1,8 @@
 package com.rosato.promotions.api.controllers;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import javax.validation.Valid;
 
 import com.rosato.promotions.api.models.FileChunk;
@@ -20,30 +23,60 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/promotions")
 public class PromotionsController {
+
+  @ResponseStatus(code = HttpStatus.NOT_FOUND, reason = "Promotion not found")
+  public class PromotionNotFoundException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+  }
+
+  @ResponseStatus(code = HttpStatus.BAD_REQUEST, reason = "No file chunks have been uploaded")
+  public static class NoFileChunksFound extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+  }
+
+  @ResponseStatus(code = HttpStatus.INTERNAL_SERVER_ERROR, reason = "Something went wrong creating file from uploaded chunks")
+  public class MergeChunksException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+  }
+
   @Autowired
   private PromotionService promotionService;
 
   @PutMapping("/upload")
   @ResponseStatus(HttpStatus.OK)
-  public String upload(@Valid @RequestBody FileChunk request) {
+  public Map<String, String> upload(@Valid @RequestBody FileChunk request) {
+    Map<String, String> response = new HashMap<>();
     String msg = "File chunk could not be uploaded";
 
     if (promotionService.saveChunk(request)) {
-      msg = "File uploaded successfully";
+      msg = "File chunk uploaded successfully";
     }
 
-    return msg;
+    response.put("message", msg);
+
+    return response;
   }
 
   @PostMapping("/finish-upload")
-  public String finishUpload() {
-    String msg = "There was a problem finishing the upload";
+  public Map<String, String> finishUpload() {
     boolean result = promotionService.buildPromotions();
-    return (result ? "Promotions created successfully" : msg);
+
+    if (!result) {
+      throw new MergeChunksException();
+    }
+
+    Map<String, String> response = new HashMap<>();
+    response.put("message", "Promotions created successfully");
+
+    return response;
   }
 
   @GetMapping("/{id}")
   public Promotion getPromotion(@PathVariable Long id) {
-    return promotionService.findById(id);
+    Promotion promotion = promotionService.findById(id);
+    if (promotion == null) {
+      throw new PromotionNotFoundException();
+    }
+    return promotion;
   }
 }

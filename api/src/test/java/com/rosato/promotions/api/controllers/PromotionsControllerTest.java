@@ -11,8 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.UUID;
 
@@ -96,14 +94,5 @@ public class PromotionsControllerTest {
   public void shouldBuildFileFromChunksAndPopulateDB() {
     promotionsController.finishUpload();
     verify(promotionService).buildPromotions();
-  }
-
-  @Test
-  public void parsingTest() {
-    String format = "2018-08-04 05:32:31 +0200 CEST";
-    LocalDateTime dateTime = ZonedDateTime.parse(format, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss x z"))
-        .toLocalDateTime();
-
-    System.out.println(dateTime);
   }
 }
