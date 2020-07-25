@@ -7,3 +7,11 @@ services:
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: "promotions"
+  api:
+    build: ./api/.
+    volumes:
+      - .:/myapp
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
