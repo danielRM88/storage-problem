@@ -13,7 +13,7 @@ public interface PromotionService {
 
   List<Promotion> findAll();
 
-  void create(Promotion promotion);
+  Promotion create(Promotion promotion);
 
   boolean saveChunk(FileChunk chunk);
 

@@ -66,7 +66,7 @@ public class PromotionsController {
     }
 
     Map<String, String> response = new HashMap<>();
-    response.put("message", "Promotions created successfully");
+    response.put("message", "Promotions are being created");
 
     return response;
   }

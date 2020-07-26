@@ -14,4 +14,9 @@ public interface PromotionRepository extends JpaRepository<Promotion, Long> {
   @Transactional
   @Query(value = "TRUNCATE TABLE promotions;", nativeQuery = true)
   void truncateTable();
+
+  @Modifying
+  @Transactional
+  @Query(value = "ALTER SEQUENCE promotions_id_seq RESTART WITH 1;", nativeQuery = true)
+  void restartIds();
 }

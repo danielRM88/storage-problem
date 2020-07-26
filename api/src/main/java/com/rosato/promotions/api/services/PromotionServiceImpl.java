@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +31,68 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PromotionServiceImpl implements PromotionService {
+
+  private static BuildPromotions buildPromotions;
+
+  private class BuildPromotions implements Runnable {
+    boolean stop;
+    List<FileChunk> chunks;
+
+    public BuildPromotions(List<FileChunk> chunks) {
+      this.chunks = chunks;
+      this.stop = false;
+    }
+
+    @Override
+    public void run() {
+      String uploadString = fileUtil.getUploadPath();
+      Path finalFilePath = Paths.get(uploadString + "promotions-final.csv");
+      // Build final file
+      try (BufferedWriter w = Files.newBufferedWriter(finalFilePath)) {
+        for (FileChunk chunk : chunks) {
+          Path file = Paths.get(chunk.getFilename());
+          try (Stream<String> fileStream = Files.lines(file)) {
+            fileStream.forEach(line -> {
+              try {
+                w.write(line);
+                w.newLine();
+              } catch (IOException e) {
+                e.printStackTrace();
+              }
+            });
+          }
+          file.toFile().delete();
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+
+      truncateTable();
+      // Populate table
+      try (InputStream inputFS = new FileInputStream(finalFilePath.toFile());
+          BufferedReader br = new BufferedReader(new InputStreamReader(inputFS))) {
+
+        Iterator<String> it = br.lines().iterator();
+        while (it.hasNext() && !stop) {
+          String line = it.next();
+          String[] fields = line.split(",");
+          Promotion p = new Promotion();
+          p.setUuid(UUID.fromString(fields[0]));
+          p.setPrice(Double.parseDouble(fields[1]));
+          p.setExpirationDate(fields[2]);
+          create(p);
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+
+      if (stop)
+        return;
+
+      finalFilePath.toFile().delete();
+    }
+  }
+
   @Autowired
   private PromotionRepository promotionRepository;
   @Autowired
@@ -51,9 +114,8 @@ public class PromotionServiceImpl implements PromotionService {
   }
 
   @Override
-  public void create(Promotion promotion) {
-    Promotion p = promotionRepository.save(promotion);
-    System.out.println(p.getId());
+  public Promotion create(Promotion promotion) {
+    return promotionRepository.save(promotion);
   }
 
   @Override
@@ -61,7 +123,6 @@ public class PromotionServiceImpl implements PromotionService {
     boolean saved = false;
 
     try (BufferedWriter w = Files.newBufferedWriter(Paths.get(chunk.getUploadFilename()))) {
-      System.out.println(chunk.getContent());
       for (String line : chunk.getContent().split("\n")) {
         w.write(line);
         w.newLine();
@@ -82,11 +143,9 @@ public class PromotionServiceImpl implements PromotionService {
     String regex = "promotions-upload.part-*";
     String uploadString = fileUtil.getUploadPath();
     Path uploadPath = Paths.get(uploadString);
-    Path finalFilePath = Paths.get(uploadString + "promotions-final.csv");
 
     List<FileChunk> chunks = new ArrayList<>();
-    try (BufferedWriter w = Files.newBufferedWriter(finalFilePath);
-        DirectoryStream<Path> dir = Files.newDirectoryStream(uploadPath, regex)) {
+    try (DirectoryStream<Path> dir = Files.newDirectoryStream(uploadPath, regex)) {
 
       dir.forEach(path -> {
         chunks.add(new FileChunk(path.toString()));
@@ -98,29 +157,15 @@ public class PromotionServiceImpl implements PromotionService {
 
       Collections.sort(chunks);
 
-      for (FileChunk chunk : chunks) {
-        Path file = Paths.get(chunk.getFilename());
-        try (Stream<String> fileStream = Files.lines(file)) {
-          fileStream.forEach(line -> {
-            try {
-              w.write(line);
-              w.newLine();
-            } catch (IOException e) {
-              e.printStackTrace();
-            }
-          });
-        }
-        file.toFile().delete();
+      if (buildPromotions != null) {
+        buildPromotions.stop = true;
       }
+      buildPromotions = new BuildPromotions(chunks);
+      new Thread(buildPromotions).start();
+
     } catch (IOException e) {
       e.printStackTrace();
       result = false;
-    }
-
-    if (result) {
-      truncateTable();
-      populateTable(finalFilePath);
-      finalFilePath.toFile().delete();
     }
 
     return result;
@@ -129,22 +174,6 @@ public class PromotionServiceImpl implements PromotionService {
   @Transactional
   private void truncateTable() {
     promotionRepository.truncateTable();
-  }
-
-  private void populateTable(Path file) {
-    try (InputStream inputFS = new FileInputStream(file.toFile());
-        BufferedReader br = new BufferedReader(new InputStreamReader(inputFS))) {
-      br.lines().forEach(line -> {
-        String[] fields = line.split(",");
-        Promotion p = new Promotion();
-        p.setUuid(UUID.fromString(fields[0]));
-        p.setPrice(Double.parseDouble(fields[1]));
-        p.setExpirationDate(fields[2]);
-
-        create(p);
-      });
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
+    promotionRepository.restartIds();
   }
 }

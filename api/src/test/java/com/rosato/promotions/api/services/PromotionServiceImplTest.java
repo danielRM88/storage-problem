@@ -98,6 +98,11 @@ public class PromotionServiceImplTest {
     }
 
     promotionService.buildPromotions();
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
     assertEquals(5, promotionService.findAll().size());
   }
 }
